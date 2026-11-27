@@ -1,5 +1,3 @@
-//go:build exercise
-
 package main
 
 import (
@@ -31,6 +29,8 @@ func TestShippingQuote(t *testing.T) {
 		{"plain text", "POST", "text/plain", `{"zone":"local","weight_grams":1}`, 415, 0, "unsupported_media_type", ""},
 		{"missing media type", "POST", "", `{"zone":"local","weight_grams":1}`, 415, 0, "unsupported_media_type", ""},
 		{"wrong method", "GET", "", "", 405, 0, "method_not_allowed", "POST"},
+		{"JSON with end bracket", "POST", jsonType, `{"zone":"local","weight_grams":1000}]`, 400, 18000, "invalid_request", ""},
+		{"bad charset format", "POST", jsonType + "; charset", `{"zone":"local","weight_grams":1}`, 415, 0, "unsupported_media_type", ""},
 	}
 
 	for _, tc := range tests {
@@ -45,10 +45,10 @@ func TestShippingQuote(t *testing.T) {
 			if rec.Code != tc.status {
 				t.Fatalf("status = %d, want %d, body = %s", rec.Code, tc.status, rec.Body)
 			}
-			if got := rec.Header().Get("Content-Type"); got != jsonType {
+			if got := rec.Result().Header.Get("Content-Type"); got != jsonType {
 				t.Errorf("Content-Type = %q, want %q", got, jsonType)
 			}
-			if got := rec.Header().Get("Allow"); got != tc.allow {
+			if got := rec.Result().Header.Get("Allow"); got != tc.allow {
 				t.Errorf("Allow = %q, want %q", got, tc.allow)
 			}
 

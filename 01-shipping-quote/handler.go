@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"mime"
 	"net/http"
 	"slices"
-	"strings"
 )
 
 type quoteRequest struct {
@@ -36,13 +36,10 @@ var zoneToTariff = map[string]tariff{
 const jsonContentType = "application/json"
 
 func quoteHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Check the method and media type, decode and validate the body,
-	// then calculate the price and write the response.
-
 	// Check method
 	if r.Method != "POST" {
-		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method_not_allowed"})
 		w.Header().Set("Allow", "POST")
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method_not_allowed"})
 		return
 	}
 
@@ -78,25 +75,25 @@ func parseBody(request *http.Request, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if dec.More() {
+
+	// Check for second value
+	err = dec.Decode(v)
+	if err != io.EOF {
 		return errors.New("multiple values")
 	}
 	return nil
 }
 
-func hasContentType(request *http.Request, mimetype string) bool {
-	contentType := request.Header.Get("Content-Type")
-	for _, v := range strings.Split(contentType, ";") {
-		t, _, err := mime.ParseMediaType(v)
-		if err != nil {
-			break
-		}
-		if t == mimetype {
-			return true
-		}
+func hasContentType(request *http.Request, expected string) bool {
+	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil {
+		return false
 	}
-
-	return false
+	if contentType == expected {
+		return true
+	} else {
+		return false
+	}
 }
 
 func isRequestDataValid(data quoteRequest) bool {
